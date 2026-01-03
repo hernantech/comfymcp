@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, Callable
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 if TYPE_CHECKING:
     from comfymcp.client.http import ComfyUIClient
 
 
-def register_workflow_tools(server: Server, get_client: Callable[[], ComfyUIClient]) -> None:
+def register_workflow_tools(server: FastMCP, get_client: Callable[[], ComfyUIClient]) -> None:
     """Register workflow management tools with the MCP server.
 
     Args:

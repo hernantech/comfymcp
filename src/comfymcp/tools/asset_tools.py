@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Callable
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import ImageContent, TextContent
 
 from comfymcp.client.http import ComfyUIClient, ComfyUIError
@@ -35,7 +35,7 @@ def get_mime_type(filename: str) -> str:
     return "image/png"
 
 
-def register_asset_tools(server: Server, get_client: Callable[[], ComfyUIClient]) -> None:
+def register_asset_tools(server: FastMCP, get_client: Callable[[], ComfyUIClient]) -> None:
     """Register asset management tools with the MCP server.
 
     Args:

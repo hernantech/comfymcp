@@ -13,7 +13,7 @@ import json
 from typing import TYPE_CHECKING, Any, Callable
 from uuid import uuid4
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from comfymcp.workflow.builder import WorkflowBuilder
@@ -31,7 +31,7 @@ _node_cache: NodeDefCache = NodeDefCache()
 
 
 def register_builder_tools(
-    server: Server, get_client: Callable[[], ComfyUIClient]
+    server: FastMCP, get_client: Callable[[], ComfyUIClient]
 ) -> None:
     """Register workflow builder tools with the MCP server.
 

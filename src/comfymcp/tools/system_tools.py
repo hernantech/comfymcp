@@ -3,13 +3,13 @@
 import json
 from typing import Callable
 
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 from comfymcp.client.http import ComfyUIClient, ComfyUIError
 
 
-def register_system_tools(server: Server, get_client: Callable[[], ComfyUIClient]) -> None:
+def register_system_tools(server: FastMCP, get_client: Callable[[], ComfyUIClient]) -> None:
     """Register system management tools with the MCP server.
 
     Args:
