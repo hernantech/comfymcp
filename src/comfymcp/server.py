@@ -172,25 +172,32 @@ class ComfyMCPServer:
 
 def main() -> None:
     """Entry point for the comfymcp command."""
+    import os
+
+    # Environment variable defaults
+    env_host = os.environ.get("COMFYUI_HOST", "127.0.0.1")
+    env_port = int(os.environ.get("COMFYUI_PORT", "8188"))
+    env_api_key = os.environ.get("COMFYUI_API_KEY")
+
     parser = argparse.ArgumentParser(
         description="ComfyMCP - MCP server for ComfyUI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--host",
-        default="127.0.0.1",
-        help="ComfyUI server host",
+        default=env_host,
+        help="ComfyUI server host (env: COMFYUI_HOST)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=8188,
-        help="ComfyUI server port",
+        default=env_port,
+        help="ComfyUI server port (env: COMFYUI_PORT)",
     )
     parser.add_argument(
         "--api-key",
-        default=None,
-        help="ComfyUI API key (if required)",
+        default=env_api_key,
+        help="ComfyUI API key (env: COMFYUI_API_KEY)",
     )
     parser.add_argument(
         "--no-auto-refresh",
