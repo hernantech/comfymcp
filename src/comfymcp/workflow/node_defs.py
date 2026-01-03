@@ -128,8 +128,8 @@ class NodeDefCache:
             # Calculate relevance score
             score = 0
             name_lower = node_def.name.lower()
-            display_lower = node_def.display_name.lower()
-            desc_lower = node_def.description.lower()
+            display_lower = (node_def.display_name or "").lower()
+            desc_lower = (node_def.description or "").lower()
 
             # Exact match on name is highest priority
             if name_lower == query_lower:
