@@ -70,6 +70,22 @@ Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json`
 }
 ```
 
+### For Claude Code CLI
+
+If you're using Claude Code (the CLI tool), you can add ComfyMCP directly:
+
+```bash
+# Add the MCP server to Claude Code
+claude mcp add comfyui \
+  --transport stdio \
+  --env COMFYUI_HOST=127.0.0.1 \
+  --env COMFYUI_PORT=8188 \
+  -- uvx --from git+https://github.com/hernantech/comfymcp comfymcp
+
+# Verify it was added
+claude mcp list
+```
+
 ### From Source
 
 ```bash
