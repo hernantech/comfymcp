@@ -1,59 +1,90 @@
 # ComfyMCP
 
-MCP (Model Context Protocol) server for ComfyUI workflow automation. Build, validate, and execute Stable Diffusion workflows programmatically with type-safe node connections.
+Give Claude the ability to generate images with ComfyUI. Just ask for what you want in natural language.
 
-## Key Features
-
-- **Named Output Connections** - Reference node outputs by name (`checkpoint.CLIP`, `sampler.LATENT`) instead of magic slot indices
-- **Type-Safe Validation** - Catch connection errors before submission with comprehensive workflow validation
-- **Pre-built Templates** - Ready-to-use templates for text2img and img2img workflows
-- **Full MCP Integration** - Complete tool and resource support for AI agents and automation
-- **Real-time Execution Tracking** - Monitor workflow progress via WebSocket events
-- **Asset Management** - Upload images, list models, and retrieve generated outputs
-
-## Architecture
-
-```mermaid
-flowchart LR
-    subgraph Client
-        A[MCP Client<br/>Claude, AI Agent]
-    end
-
-    subgraph ComfyMCP
-        B[MCP Server]
-        C[Workflow Builder]
-        D[HTTP Client]
-        E[WebSocket Client]
-    end
-
-    subgraph ComfyUI
-        F[REST API]
-        G[WebSocket]
-        H[Execution Engine]
-    end
-
-    A <-->|MCP Protocol| B
-    B --> C
-    B --> D
-    B --> E
-    D <-->|HTTP| F
-    E <-->|Events| G
-    F --> H
-    G --> H
 ```
+You: "Generate an image of a robot painting a sunset"
+
+Claude: I'll create that image for you.
+        [builds 7-node workflow, executes it]
+        Done! Generated robot_painting_00001.png in 2.3 seconds.
+```
+
+## What You Can Ask
+
+Once installed, Claude can handle requests like:
+
+**Image Generation**
+- "Generate an image of a cat astronaut floating in space"
+- "Create a 1024x1024 fantasy landscape using SDXL"
+- "Make a portrait with negative prompt 'blurry, low quality'"
+
+**Model & System Info**
+- "What checkpoint models do I have?"
+- "Show me the available samplers"
+- "What's my GPU memory usage?"
+
+**Workflow Control**
+- "Use 30 steps instead of 20 for better quality"
+- "Generate 4 variations with different seeds"
+- "What's the status of my last generation?"
+
+Claude handles all the complexity—discovering nodes, building connections, validating the workflow, and monitoring execution.
+
+## How It Works
+
+When you ask Claude to generate an image, it builds a complete ComfyUI workflow:
+
+```
+[1] CheckpointLoaderSimple ─────────────────────────────┐
+     ├── MODEL ──────────────────────────────────────────┤
+     ├── CLIP ───┬──→ [3] CLIPTextEncode (positive) ────┤
+     │           └──→ [4] CLIPTextEncode (negative) ────┤
+     └── VAE ────────────────────────────────────────────┤
+                                                         ▼
+[2] EmptyLatentImage ──────────────────────────→ [5] KSampler
+                                                         │
+                                                         ▼
+                                                 [6] VAEDecode
+                                                         │
+                                                         ▼
+                                                 [7] SaveImage
+```
+
+This happens automatically. Claude:
+1. Discovers available nodes and their inputs/outputs
+2. Builds the workflow with proper connections
+3. Validates everything before execution
+4. Queues the job and monitors completion
+5. Reports the output filename
 
 ## Installation
 
-### For Claude Desktop / Claude Code
+### Prerequisites
 
-The easiest way to use ComfyMCP is with `uvx` (comes with [uv](https://docs.astral.sh/uv/)):
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running (default: `localhost:8188`)
+- [uv](https://docs.astral.sh/uv/) package manager
 
 ```bash
-# Install uv if you don't have it
+# Install uv if needed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json` on Linux, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+### Claude Code (CLI)
+
+```bash
+claude mcp add comfyui \
+  --transport stdio \
+  --env COMFYUI_HOST=127.0.0.1 \
+  --env COMFYUI_PORT=8188 \
+  -- uvx --from git+https://github.com/hernantech/comfymcp comfymcp
+```
+
+### Claude Desktop
+
+Add to your config file:
+- Linux: `~/.config/claude/claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -70,496 +101,190 @@ Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json`
 }
 ```
 
-### For Claude Code CLI
+### Verify Installation
 
-If you're using Claude Code (the CLI tool), you can add ComfyMCP directly:
+Ask Claude: *"Check if ComfyUI is connected"*
 
+You should see confirmation that the server is online with GPU info.
+
+## Configuration
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `COMFYUI_HOST` | ComfyUI server address | 127.0.0.1 |
+| `COMFYUI_PORT` | ComfyUI server port | 8188 |
+| `COMFYUI_API_KEY` | API key (if required) | None |
+
+For remote ComfyUI servers, update the host:
 ```bash
-# Add the MCP server to Claude Code
 claude mcp add comfyui \
-  --transport stdio \
-  --env COMFYUI_HOST=127.0.0.1 \
-  --env COMFYUI_PORT=8188 \
-  -- uvx --from git+https://github.com/hernantech/comfymcp comfymcp
-
-# Verify it was added
-claude mcp list
+  --env COMFYUI_HOST=192.168.1.100 \
+  ...
 ```
 
-### From Source
+---
 
-```bash
-git clone https://github.com/hernantech/comfymcp.git
-cd comfymcp
-pip install -e .
-```
+## Reference
 
-> **Note:** This package is not yet published to PyPI.
+### Available MCP Tools
 
-## Quick Start
+<details>
+<summary><strong>Workflow Execution</strong></summary>
 
-### As a Standalone Server
+| Tool | Description |
+|------|-------------|
+| `queue_prompt` | Submit a workflow for execution |
+| `get_queue_status` | Check running/pending jobs |
+| `get_job_status` | Get status of a specific job |
+| `get_history` | View execution history |
+| `interrupt_execution` | Stop current generation |
+| `clear_queue` | Clear pending jobs |
 
-```bash
-# Start with default settings (ComfyUI at localhost:8188)
-comfymcp
+</details>
 
-# Specify custom host and port
-comfymcp --host 192.168.1.100 --port 8188
+<details>
+<summary><strong>Workflow Building</strong></summary>
 
-# Or use environment variables
-COMFYUI_HOST=192.168.1.100 COMFYUI_PORT=8188 comfymcp
+| Tool | Description |
+|------|-------------|
+| `create_workflow` | Start a new workflow session |
+| `add_node` | Add a node with inputs |
+| `build_workflow` | Finalize and validate |
+| `validate_workflow` | Check for errors |
+| `list_nodes` | Search available nodes |
+| `get_node_info` | Get node specifications |
+| `refresh_nodes` | Reload node definitions |
 
-# With API key authentication
-comfymcp --api-key your-api-key
+</details>
 
-# Enable debug logging
-comfymcp --debug
-```
+<details>
+<summary><strong>Assets & Models</strong></summary>
 
-### Alternative MCP Configurations
+| Tool | Description |
+|------|-------------|
+| `list_models` | List checkpoints, LoRAs, VAEs, etc. |
+| `list_embeddings` | List textual inversions |
+| `list_output_images` | List generated images |
+| `get_image` | Retrieve an image |
+| `upload_image` | Upload for img2img |
 
-**With pip-installed package:**
-```json
-{
-  "mcpServers": {
-    "comfyui": {
-      "command": "comfymcp",
-      "args": ["--host", "127.0.0.1", "--port", "8188"]
-    }
-  }
-}
-```
+</details>
 
-**With Python path (for development):**
-```json
-{
-  "mcpServers": {
-    "comfyui": {
-      "command": "python",
-      "args": ["-m", "comfymcp.server"],
-      "cwd": "/path/to/comfymcp",
-      "env": {
-        "COMFYUI_HOST": "127.0.0.1",
-        "COMFYUI_PORT": "8188"
-      }
-    }
-  }
-}
-```
+<details>
+<summary><strong>System</strong></summary>
 
-### Programmatic Workflow Building
+| Tool | Description |
+|------|-------------|
+| `check_connection` | Verify ComfyUI is reachable |
+| `get_system_stats` | GPU memory, system info |
+| `free_memory` | Unload models, clear cache |
+| `get_extensions` | List installed extensions |
+
+</details>
+
+### MCP Resources
+
+| URI | Description |
+|-----|-------------|
+| `comfyui://nodes` | All available nodes |
+| `comfyui://nodes/categories` | Node categories |
+| `comfyui://nodes/{class_type}` | Specific node definition |
+| `comfyui://outputs` | Recent outputs |
+| `comfyui://images/{filename}` | Retrieve image |
+
+---
+
+## Python API
+
+For programmatic use outside of MCP:
 
 ```python
 from comfymcp.workflow import WorkflowBuilder
 
 builder = WorkflowBuilder()
 
-# Load checkpoint - returns NodeRef with named outputs
+# Nodes return refs with named outputs
 checkpoint = builder.add_node("CheckpointLoaderSimple",
-    ckpt_name="v1-5-pruned.safetensors"
-)
+    ckpt_name="sd_turbo.safetensors")
 
-# Create empty latent
-empty_latent = builder.add_node("EmptyLatentImage",
-    width=512, height=512, batch_size=1
-)
+latent = builder.add_node("EmptyLatentImage",
+    width=512, height=512, batch_size=1)
 
-# Encode prompts - use checkpoint.CLIP for named connection
 positive = builder.add_node("CLIPTextEncode",
-    clip=checkpoint.CLIP,
-    text="a majestic mountain landscape at sunset"
-)
+    clip=checkpoint.CLIP,  # Named output connection
+    text="a beautiful sunset")
 
 negative = builder.add_node("CLIPTextEncode",
     clip=checkpoint.CLIP,
-    text="ugly, blurry, low quality"
-)
+    text="ugly, blurry")
 
-# Sample - connect using named outputs
 sampler = builder.add_node("KSampler",
     model=checkpoint.MODEL,
     positive=positive.CONDITIONING,
     negative=negative.CONDITIONING,
-    latent_image=empty_latent.LATENT,
-    seed=42,
-    steps=20,
-    cfg=7.5,
-    sampler_name="euler",
-    scheduler="normal",
-    denoise=1.0
-)
+    latent_image=latent.LATENT,
+    seed=42, steps=4, cfg=1.0,
+    sampler_name="euler", scheduler="normal", denoise=1.0)
 
-# Decode and save
 decode = builder.add_node("VAEDecode",
     samples=sampler.LATENT,
-    vae=checkpoint.VAE
-)
+    vae=checkpoint.VAE)
 
-save = builder.add_node("SaveImage",
+builder.add_node("SaveImage",
     images=decode.IMAGE,
-    filename_prefix="output"
-)
+    filename_prefix="output")
 
-# Build the workflow
 workflow = builder.build()
-
-# Validate before submission
-result = builder.validate()
-if result.valid:
-    print("Workflow is ready to execute")
-else:
-    for error in result.errors:
-        print(f"Error: {error}")
 ```
 
-## MCP Tools Reference
-
-### Workflow Tools
-
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `queue_prompt` | Submit a workflow for execution | `workflow`: dict, `client_id`: optional str |
-| `get_queue_status` | Get current queue state | - |
-| `get_history` | Get execution history | `prompt_id`: optional str, `max_items`: optional int |
-| `get_job_status` | Check status of a specific job | `prompt_id`: str |
-| `clear_queue` | Clear all pending queue items | - |
-| `delete_queue_item` | Remove specific item from queue | `prompt_id`: str |
-| `interrupt_execution` | Stop currently executing workflow | - |
-
-### Builder Tools
-
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `list_nodes` | Search available ComfyUI nodes | `category`: optional str, `search`: optional str |
-| `get_node_info` | Get detailed node specification | `class_type`: str |
-| `refresh_nodes` | Refresh node definition cache | - |
-| `create_workflow` | Create a new workflow session | - |
-| `add_node` | Add a node to workflow session | `session_id`: str, `class_type`: str, `inputs`: optional dict |
-| `build_workflow` | Build and validate workflow | `session_id`: str |
-| `validate_workflow` | Validate a raw workflow dict | `workflow`: dict |
-
-### Asset Tools
-
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `list_models` | List available models | `model_type`: optional str (checkpoints, loras, vae, etc.) |
-| `list_output_images` | List generated images | `subfolder`: optional str |
-| `get_image` | Retrieve an image | `filename`: str, `subfolder`: str, `folder_type`: str, `format`: url\|base64 |
-| `upload_image` | Upload an image | `image_data`: base64 str, `filename`: str, `folder_type`: input\|temp |
-| `list_embeddings` | List available embeddings | - |
-
-### System Tools
-
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `get_system_stats` | Get GPU and memory information | - |
-| `free_memory` | Free memory/unload models | `unload_models`: bool, `free_memory`: bool |
-| `get_extensions` | List loaded extensions | - |
-| `check_connection` | Verify ComfyUI is reachable | - |
-
-## MCP Resources Reference
-
-| URI Pattern | Description | MIME Type |
-|-------------|-------------|-----------|
-| `comfyui://nodes` | List all available nodes | application/json |
-| `comfyui://nodes/categories` | List node categories | application/json |
-| `comfyui://nodes/category/{name}` | Nodes in a category | application/json |
-| `comfyui://nodes/{class_type}` | Specific node definition | application/json |
-| `comfyui://outputs` | Recent execution outputs | application/json |
-| `comfyui://outputs/{prompt_id}` | Outputs from specific execution | application/json |
-| `comfyui://images/{filename}?type=output` | Specific image | image/* |
-
-## Programmatic API
-
-### WorkflowBuilder
-
-The `WorkflowBuilder` class provides a fluent API for constructing workflows:
+### Templates
 
 ```python
-from comfymcp.workflow import WorkflowBuilder, NodeDefCache
+from comfymcp.templates import Text2ImgTemplate, Img2ImgTemplate
 
-# With node cache for validation (recommended)
-cache = NodeDefCache()
-# await cache.refresh(client)  # Load from ComfyUI server
-
-builder = WorkflowBuilder(cache=cache)
-
-# Add nodes with automatic ID generation
-node = builder.add_node("NodeClass", **inputs)
-
-# Or specify custom ID
-node = builder.add_node("NodeClass", node_id="my_id", **inputs)
-
-# Access nodes
-node = builder.get_node("my_id")
-
-# Update inputs
-builder.update_input("node_id", "input_name", new_value)
-
-# Set seed on sampler nodes
-builder.set_seed(seed=12345)  # All samplers
-builder.set_seed(node_id="3", seed=12345)  # Specific node
-
-# Build and validate
-workflow = builder.build()
-result = builder.validate()
-```
-
-### NodeRef - Named Output Access
-
-`NodeRef` eliminates magic slot indices by providing named output access:
-
-```python
-# Instead of remembering slot indices:
-# checkpoint outputs: [MODEL, CLIP, VAE] = slots [0, 1, 2]
-sampler_inputs = {
-    "model": ["1", 0],     # Error-prone!
-    "positive": ["2", 0],
-}
-
-# Use NodeRef named properties:
-checkpoint = builder.add_node("CheckpointLoaderSimple", ckpt_name="model.safetensors")
-
-# Access outputs by name - much clearer!
-checkpoint.MODEL        # Returns ["1", 0]
-checkpoint.CLIP         # Returns ["1", 1]
-checkpoint.VAE          # Returns ["1", 2]
-
-# Or use the output() method
-checkpoint.output("MODEL")
-
-# Common output shortcuts available:
-# .MODEL, .CLIP, .VAE, .IMAGE, .LATENT, .CONDITIONING, .MASK, .CONTROL_NET, .AUDIO
-```
-
-### Validation
-
-Validate workflows before submission:
-
-```python
-from comfymcp.workflow import validate_workflow
-
-result = validate_workflow(workflow, cache=node_cache)
-
-if not result.valid:
-    for error in result.errors:
-        print(f"[{error.node_id}] {error.error_type}: {error.message}")
-
-for warning in result.warnings:
-    print(f"Warning: {warning.message}")
-```
-
-Validation checks:
-- Required inputs are provided
-- Input types match expected types
-- Connections reference valid nodes and slots
-- Connection types are compatible
-- Numeric values are within allowed ranges
-- Workflow has at least one output node
-
-## Templates
-
-### Text-to-Image
-
-```python
-from comfymcp.templates import Text2ImgTemplate
-
-template = Text2ImgTemplate(
-    checkpoint="v1-5-pruned.safetensors",
-    positive_prompt="a beautiful landscape, masterpiece, high quality",
-    negative_prompt="ugly, blurry, low quality",
-    width=512,
-    height=512,
-    steps=20,
-    cfg=7.0,
-    sampler_name="euler",
-    scheduler="normal",
-    seed=-1,  # -1 for random
-    batch_size=1,
-    filename_prefix="txt2img"
-)
-
-# Validate parameters
-errors = template.validate_params()
-if not errors:
-    workflow = template.build()
-```
-
-### Image-to-Image
-
-```python
-from comfymcp.templates import Img2ImgTemplate
-
-template = Img2ImgTemplate(
-    checkpoint="v1-5-pruned.safetensors",
-    image="input.png",  # Must exist in ComfyUI input folder
-    positive_prompt="enhance the details, add vibrant colors",
+# Text to image
+txt2img = Text2ImgTemplate(
+    checkpoint="sd_turbo.safetensors",
+    positive_prompt="a majestic mountain",
     negative_prompt="ugly, blurry",
-    denoise=0.75,  # 0.0-1.0, higher = more change
-    steps=20,
-    cfg=7.0,
-    sampler_name="euler",
-    scheduler="normal",
-    seed=-1,
-    filename_prefix="img2img"
+    width=512, height=512,
+    steps=4, cfg=1.0
 )
+workflow = txt2img.build()
 
-workflow = template.build()
+# Image to image
+img2img = Img2ImgTemplate(
+    checkpoint="sd_turbo.safetensors",
+    image="input.png",
+    positive_prompt="enhance details",
+    denoise=0.6
+)
+workflow = img2img.build()
 ```
 
-## WebSocket Execution Tracking
-
-Monitor workflow execution in real-time:
+### Direct Client Usage
 
 ```python
-from comfymcp.client import ComfyUIClient, ComfyUIWebSocket
-
-async def run_with_progress():
-    async with ComfyUIClient() as client:
-        # Queue the workflow
-        response = await client.queue_prompt(workflow)
-        prompt_id = response.prompt_id
-
-        # Track execution via WebSocket
-        async with ComfyUIWebSocket() as ws:
-            async with ws.track_execution(
-                prompt_id,
-                on_progress=lambda p: print(f"Progress: {p.percentage:.1f}%"),
-                on_node_start=lambda n: print(f"Executing: {n}"),
-                on_node_complete=lambda n, o: print(f"Completed: {n}")
-            ) as tracker:
-                success = await tracker.wait(timeout=300)
-
-                if success:
-                    print("Outputs:", tracker.outputs)
-                else:
-                    print("Error:", tracker.error)
-```
-
-## Use Cases
-
-### AI Agent Image Generation
-
-Enable AI assistants to generate images based on user requests:
-
-```python
-# AI agent can use MCP tools to:
-# 1. List available checkpoints
-models = await mcp.call_tool("list_models", {"model_type": "checkpoints"})
-
-# 2. Create and build a workflow
-session = await mcp.call_tool("create_workflow")
-await mcp.call_tool("add_node", {
-    "session_id": session["session_id"],
-    "class_type": "CheckpointLoaderSimple",
-    "inputs": {"ckpt_name": "dreamshaper_8.safetensors"}
-})
-# ... add more nodes ...
-
-# 3. Queue and monitor
-result = await mcp.call_tool("queue_prompt", {"workflow": workflow})
-status = await mcp.call_tool("get_job_status", {"prompt_id": result["prompt_id"]})
-```
-
-### Batch Processing Pipeline
-
-Process multiple images with consistent settings:
-
-```python
-from comfymcp.templates import Img2ImgTemplate
 from comfymcp.client import ComfyUIClient
 
-async def batch_process(input_images: list[str], prompt: str):
-    async with ComfyUIClient() as client:
-        for image in input_images:
-            template = Img2ImgTemplate(
-                checkpoint="sd_xl_base.safetensors",
-                image=image,
-                positive_prompt=prompt,
-                denoise=0.6,
-            )
+async with ComfyUIClient(host="127.0.0.1", port=8188) as client:
+    # Queue workflow
+    result = await client.queue_prompt(workflow)
 
-            workflow = template.build()
-            response = await client.queue_prompt(workflow)
+    # Check status
+    history = await client.get_history(prompt_id=result.prompt_id)
 
-            # Wait for completion
-            history = await client.get_history(prompt_id=response.prompt_id)
-            # Process results...
+    # List models
+    checkpoints = await client.get_models("checkpoints")
 ```
 
-### Integration with Chat Interfaces
-
-```python
-# Use ComfyMCP with any MCP-compatible chat interface
-# The AI can naturally discuss and generate images:
-
-# User: "Generate a cyberpunk city at night with neon lights"
-# AI uses: list_nodes, create_workflow, add_node, queue_prompt
-# AI responds: "I've generated your cyberpunk city. Here's the result..."
-```
-
-### Automated Model Testing
-
-```python
-async def test_checkpoints():
-    """Test all checkpoints with the same prompt."""
-    async with ComfyUIClient() as client:
-        checkpoints = await client.get_models("checkpoints")
-
-        for ckpt in checkpoints:
-            template = Text2ImgTemplate(
-                checkpoint=ckpt,
-                positive_prompt="a test image, high quality",
-                seed=42,  # Fixed seed for comparison
-            )
-
-            workflow = template.build()
-            await client.queue_prompt(workflow)
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `COMFYUI_HOST` | ComfyUI server host | 127.0.0.1 |
-| `COMFYUI_PORT` | ComfyUI server port | 8188 |
-| `COMFYUI_API_KEY` | API key for authentication | None |
-
-### CLI Arguments
-
-```
-comfymcp [OPTIONS]
-
-Options:
-  --host TEXT          ComfyUI server host [default: 127.0.0.1]
-  --port INTEGER       ComfyUI server port [default: 8188]
-  --api-key TEXT       ComfyUI API key (if required)
-  --no-auto-refresh    Don't refresh node definitions on startup
-  --debug              Enable debug logging
-```
-
-## Roadmap
-
-Planned features and improvements:
-
-- [ ] **Custom Node Discovery** - Automatic validation for custom nodes
-- [ ] **LoRA Integration Helpers** - Simplified LoRA loading and stacking
-- [ ] **ControlNet Template** - Pre-built ControlNet workflow template
-- [ ] **Inpainting Template** - Pre-built inpainting workflow template
-- [ ] **Better Type Mismatch Errors** - More descriptive error messages
-- [ ] **WebSocket Progress Streaming** - Stream progress events to MCP clients
-- [ ] **Multi-GPU Distribution** - Workflow distribution across multiple GPUs
-- [ ] **Workflow Caching** - Cache and reuse common workflow patterns
-- [ ] **SDXL-specific Templates** - Optimized templates for SDXL models
+---
 
 ## Requirements
 
 - Python 3.10+
-- ComfyUI server running and accessible
-- MCP-compatible client (for MCP features)
+- ComfyUI server running
+- MCP-compatible client (Claude Code, Claude Desktop, Cursor, etc.)
 
 ## License
 
