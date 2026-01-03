@@ -60,7 +60,7 @@ Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json`
   "mcpServers": {
     "comfyui": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/comfymcp/comfymcp", "comfymcp"],
+      "args": ["--from", "git+https://github.com/hernantech/comfymcp", "comfymcp"],
       "env": {
         "COMFYUI_HOST": "127.0.0.1",
         "COMFYUI_PORT": "8188"
@@ -73,7 +73,7 @@ Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json`
 ### From Source
 
 ```bash
-git clone https://github.com/comfymcp/comfymcp.git
+git clone https://github.com/hernantech/comfymcp.git
 cd comfymcp
 pip install -e .
 ```

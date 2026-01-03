@@ -42,8 +42,8 @@ dev = [
 comfymcp = "comfymcp.server:main"
 
 [project.urls]
-Homepage = "https://github.com/comfymcp/comfymcp"
-Repository = "https://github.com/comfymcp/comfymcp"
+Homepage = "https://github.com/hernantech/comfymcp"
+Repository = "https://github.com/hernantech/comfymcp"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/comfymcp"]
